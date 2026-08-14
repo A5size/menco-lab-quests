@@ -51,14 +51,25 @@ jobs:
           mkdir -p /tmp/validator && tar xzf /tmp/menco-validator-linux.tar.gz -C /tmp/validator
           chmod +x /tmp/validator/MencoLab.x86_64
 
+      - name: 実行時ライブラリの準備
+        if: steps.extract.outputs.found == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libasound2t64 libglu1-mesa libxcursor1 libxrandr2 libxinerama1 libxi6 || \
+            sudo apt-get install -y -qq xvfb libasound2 libglu1-mesa libxcursor1 libxrandr2 libxinerama1 libxi6 || true
+
       - name: 検証を実行
         if: steps.extract.outputs.found == 'true'
         id: verify
         run: |
           set +e
-          /tmp/validator/MencoLab.x86_64 -batchmode -nographics \
+          xvfb-run -a /tmp/validator/MencoLab.x86_64 -batchmode -nographics \
             -menco-verifycode -in /tmp/code.txt -out /tmp/result.txt -logFile /tmp/player.log
-          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          rc=$?
+          echo "--- player.log (tail) ---"
+          tail -60 /tmp/player.log 2>/dev/null || echo "(no player.log)"
+          [ -f /tmp/result.txt ] || { echo "検証機が異常終了(結果なし, rc=$rc)" > /tmp/result.txt; rc=2; }
+          echo "exit=$rc" >> "$GITHUB_OUTPUT"
           echo "result<<EOF" >> "$GITHUB_OUTPUT"
           cat /tmp/result.txt >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
