@@ -1,0 +1,109 @@
+name: validate-quest
+on:
+  issues:
+    types: [opened, edited]
+
+# カタログ更新の競合を防ぐため直列実行
+concurrency:
+  group: quest-validation
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  validate:
+    if: contains(github.event.issue.labels.*.name, 'submission') || startsWith(github.event.issue.title, '[依頼書]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 依頼書コードを抽出
+        id: extract
+        env:
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          set -e
+          CODE=$(printf '%s' "$BODY" | grep -oE 'MENCOQ1[A-Za-z0-9+/=.\-]+' | head -1 || true)
+          if [ -z "$CODE" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$CODE" > /tmp/code.txt
+          fi
+
+      - name: コードなし → 案内して終了
+        if: steps.extract.outputs.found == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
+            --body "依頼書コード(MENCOQ1…)が見つかりませんでした。本文にコードをそのまま貼り付けて、Issueを編集してください。"
+
+      - name: 検証機を取得(Releases)
+        if: steps.extract.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release download validator --repo ${{ github.repository }} --pattern 'menco-validator-linux.tar.gz' --dir /tmp
+          mkdir -p /tmp/validator && tar xzf /tmp/menco-validator-linux.tar.gz -C /tmp/validator
+          chmod +x /tmp/validator/MencoLab.x86_64
+
+      - name: 検証を実行
+        if: steps.extract.outputs.found == 'true'
+        id: verify
+        run: |
+          set +e
+          /tmp/validator/MencoLab.x86_64 -batchmode -nographics \
+            -menco-verifycode -in /tmp/code.txt -out /tmp/result.txt -logFile /tmp/player.log
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          echo "result<<EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/result.txt >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: 合格 → カタログ収載してクローズ
+        if: steps.extract.outputs.found == 'true' && steps.verify.outputs.exit == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.verify.outputs.result }}
+        run: |
+          set -e
+          TITLE=$(printf '%s' "$RESULT" | sed -n 's/^OK //p' | head -1)
+          CODE=$(cat /tmp/code.txt)
+          mkdir -p catalog
+          [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
+          # 同一コードの重複収載を防ぐ
+          if jq -e --arg c "$CODE" '.items[] | select(.code == $c)' catalog/quests.json > /dev/null; then
+            gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
+              --body "この依頼書はすでにカタログに収載されています。"
+            gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --reason completed
+            exit 0
+          fi
+          jq --arg t "$TITLE" --arg c "$CODE" \
+             --arg a "${{ github.event.issue.user.login }}" \
+             --argjson n ${{ github.event.issue.number }} \
+             '.items += [{title:$t, code:$c, author:$a, issue:$n}]' \
+             catalog/quests.json > /tmp/q.json && mv /tmp/q.json catalog/quests.json
+          git config user.name "quest-bot"
+          git config user.email "actions@github.com"
+          git add catalog/quests.json
+          git commit -m "収載: ${TITLE} (#${{ github.event.issue.number }})"
+          git pull --rebase origin main
+          git push origin main
+          gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label accepted || true
+          gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
+            --body "検証合格。「${TITLE}」をカタログに収載しました。ありがとうございます!"
+          gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --reason completed
+
+      - name: 不合格 → 理由をコメントしてクローズ
+        if: steps.extract.outputs.found == 'true' && steps.verify.outputs.exit != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.verify.outputs.result }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label rejected || true
+          gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
+            --body "検証に不合格でした。$(printf '\n\n```\n%s\n```\n' "$RESULT")コードが正しいか、ゲーム内で発行されたものをそのまま貼ったかをご確認ください。"
+          gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --reason "not planned"
