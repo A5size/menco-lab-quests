@@ -1,0 +1,66 @@
+name: ranking
+on:
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ranking
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  aggregate:
+    # playlog(#2)へのコメント時と定期実行
+    if: github.event_name != 'issue_comment' || github.event.issue.number == 2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 集計
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh api "repos/${{ github.repository }}/issues/2/comments?per_page=100" --paginate \
+            -q '.[].body' > /tmp/plays.txt || true
+          python3 - <<'PY'
+          import json, re, collections
+          plays = collections.defaultdict(list)
+          pat = re.compile(r'play issue=(\d+) win=([01]) time=([\d.]+) title=(.*) player=(\S+)$')
+          for line in open('/tmp/plays.txt'):
+              m = pat.match(line.strip())
+              if not m: continue
+              issue, win, t, title, player = int(m[1]), m[2]=='1', float(m[3]), m[4], m[5]
+              plays[issue].append({'win': win, 'time': t, 'title': title, 'player': player})
+          out = {'quests': []}
+          for issue, ps in sorted(plays.items()):
+              wins = [p for p in ps if p['win']]
+              best = {}
+              for p in wins:
+                  if p['player'] not in best or p['time'] < best[p['player']]['time']:
+                      best[p['player']] = p
+              board = sorted(best.values(), key=lambda p: p['time'])[:20]
+              out['quests'].append({
+                  'issue': issue,
+                  'title': ps[-1]['title'],
+                  'plays': len(ps),
+                  'clears': len(wins),
+                  'board': [{'player': p['player'], 'time': p['time']} for p in board],
+              })
+          json.dump(out, open('/tmp/ranking.json','w'), ensure_ascii=False, indent=1)
+          PY
+          mkdir -p catalog
+          cp /tmp/ranking.json catalog/ranking.json
+          if ! git diff --quiet catalog/ranking.json 2>/dev/null; then
+            git config user.name "quest-bot"
+            git config user.email "actions@github.com"
+            git add catalog/ranking.json
+            git commit -m "ランキング更新"
+            git pull --rebase origin main
+            git push origin main
+          fi
