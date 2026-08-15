@@ -100,10 +100,11 @@ jobs:
           mkdir -p catalog
           cp /tmp/ranking.json catalog/ranking.json
           cp /tmp/RANKING.md RANKING.md
-          if ! git diff --quiet catalog/ranking.json RANKING.md 2>/dev/null; then
-            git config user.name "quest-bot"
-            git config user.email "actions@github.com"
-            git add catalog/ranking.json RANKING.md
+          git config user.name "quest-bot"
+          git config user.email "actions@github.com"
+          git add catalog/ranking.json RANKING.md
+          # 未追跡ファイルも拾えるよう、ステージした差分で判定する
+          if ! git diff --cached --quiet; then
             git commit -m "ランキング更新"
             git pull --rebase origin main
             git push origin main
