@@ -82,10 +82,10 @@ jobs:
         run: |
           set -e
           OKLINE=$(printf '%s' "$RESULT" | grep '^OK ' | head -1)
-          UID=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=\([0-9a-f]*\) .*/\1/p')
+          QUID=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=\([0-9a-f]*\) .*/\1/p')
           TITLE=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* title=//p')
           CODE=$(cat /tmp/code.txt)
-          if [ -z "$UID" ]; then
+          if [ -z "$QUID" ]; then
             gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
               --body "この依頼書コードは古い形式です。最新のアプリで作り直して投稿してください。"
             gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --reason "not planned"
@@ -94,7 +94,7 @@ jobs:
           mkdir -p catalog
           [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
           # 主キーは恒久ID。同じ課題の投稿は最新の内容で置き換える
-          jq --arg u "$UID" --arg t "$TITLE" --arg c "$CODE" \
+          jq --arg u "$QUID" --arg t "$TITLE" --arg c "$CODE" \
              --arg a "${{ github.event.issue.user.login }}" \
              --argjson n ${{ github.event.issue.number }} \
              '.items = ((.items // []) | map(select(.uid != $u))) + [{uid:$u, title:$t, code:$c, author:$a, issue:$n}]' \
@@ -102,7 +102,7 @@ jobs:
           git config user.name "quest-bot"
           git config user.email "actions@github.com"
           git add catalog/quests.json
-          git commit -m "収載: ${TITLE} [${UID}] (#${{ github.event.issue.number }})"
+          git commit -m "収載: ${TITLE} [${QUID}] (#${{ github.event.issue.number }})"
           git pull --rebase origin main
           git push origin main
           gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label accepted || true
