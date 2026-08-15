@@ -61,13 +61,49 @@ jobs:
                   'board': [{'player': p['player'], 'time': p['time']} for p in board],
               })
           json.dump(out, open('/tmp/ranking.json','w'), ensure_ascii=False, indent=1)
+
+          # GitHub上で読めるランキング表も出す(難関順=勝率が低いほど上位、挑戦5回未満は末尾)
+          import datetime
+          quests = {}
+          if os.path.exists('catalog/quests.json'):
+              for q in json.load(open('catalog/quests.json')).get('items', []):
+                  quests[q.get('issue')] = q
+          rows = []
+          for q in out['quests']:
+              info = quests.get(q['issue'], {})
+              rows.append({
+                  'title': info.get('title') or q['title'],
+                  'uid': (info.get('uid') or '')[:8],
+                  'author': info.get('author', '?'),
+                  'created': info.get('created', 0),
+                  'plays': q['plays'], 'clears': q['clears'], 'winRate': q['winRate'],
+                  'issue': q['issue'],
+              })
+          # まだ誰も挑んでいない課題も載せる
+          for issue, info in quests.items():
+              if not any(r['issue'] == issue for r in rows):
+                  rows.append({'title': info.get('title',''), 'uid': (info.get('uid') or '')[:8],
+                               'author': info.get('author','?'), 'created': info.get('created',0),
+                               'plays': 0, 'clears': 0, 'winRate': -1, 'issue': issue})
+          rows.sort(key=lambda r: (r['winRate'] < 0, r['winRate'], -r['created']))
+          def date(ts):
+              return datetime.datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d') if ts else '-'
+          md = ['# 課題ランキング', '',
+                '勝率が低い課題ほど上位(難関順)。作者本人の挑戦は数えません。挑戦5回未満は勝率を出さず末尾に置きます。', '',
+                '| # | 課題 | 作者 | 登録日 | 挑戦 | クリア | 勝率 |', '|---:|---|---|---|---:|---:|---:|']
+          for i, r in enumerate(rows, 1):
+              rate = f"{r['winRate']*100:.0f}%" if r['winRate'] >= 0 else '—'
+              md.append(f"| {i} | [{r['title']}](../../issues/{r['issue']}) `{r['uid']}` | {r['author']} | {date(r['created'])} | {r['plays']} | {r['clears']} | {rate} |")
+          md += ['', f"更新: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC"]
+          open('/tmp/RANKING.md','w').write('\n'.join(md) + '\n')
           PY
           mkdir -p catalog
           cp /tmp/ranking.json catalog/ranking.json
-          if ! git diff --quiet catalog/ranking.json 2>/dev/null; then
+          cp /tmp/RANKING.md RANKING.md
+          if ! git diff --quiet catalog/ranking.json RANKING.md 2>/dev/null; then
             git config user.name "quest-bot"
             git config user.email "actions@github.com"
-            git add catalog/ranking.json
+            git add catalog/ranking.json RANKING.md
             git commit -m "ランキング更新"
             git pull --rebase origin main
             git push origin main
