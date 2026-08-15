@@ -85,12 +85,6 @@ jobs:
           QUID=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=\([0-9a-f]*\) .*/\1/p')
           TITLE=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* title=//p')
           CODE=$(cat /tmp/code.txt)
-          if [ -z "$QUID" ]; then
-            gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
-              --body "この依頼書コードは古い形式です。最新のアプリで作り直して投稿してください。"
-            gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --reason "not planned"
-            exit 0
-          fi
           mkdir -p catalog
           [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
           # 主キーは恒久ID。同じ課題の投稿は最新の内容で置き換える
