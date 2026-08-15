@@ -81,26 +81,28 @@ jobs:
           RESULT: ${{ steps.verify.outputs.result }}
         run: |
           set -e
-          TITLE=$(printf '%s' "$RESULT" | sed -n 's/^OK //p' | head -1)
+          OKLINE=$(printf '%s' "$RESULT" | grep '^OK ' | head -1)
+          UID=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=\([0-9a-f]*\) .*/\1/p')
+          TITLE=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* title=//p')
           CODE=$(cat /tmp/code.txt)
-          mkdir -p catalog
-          [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
-          # 同一コードの重複収載を防ぐ
-          if jq -e --arg c "$CODE" '.items[] | select(.code == $c)' catalog/quests.json > /dev/null; then
+          if [ -z "$UID" ]; then
             gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
-              --body "この依頼書はすでにカタログに収載されています。"
-            gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --reason completed
+              --body "この依頼書コードは古い形式です。最新のアプリで作り直して投稿してください。"
+            gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }} --reason "not planned"
             exit 0
           fi
-          jq --arg t "$TITLE" --arg c "$CODE" \
+          mkdir -p catalog
+          [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
+          # 主キーは恒久ID。同じ課題の投稿は最新の内容で置き換える
+          jq --arg u "$UID" --arg t "$TITLE" --arg c "$CODE" \
              --arg a "${{ github.event.issue.user.login }}" \
              --argjson n ${{ github.event.issue.number }} \
-             '.items += [{title:$t, code:$c, author:$a, issue:$n}]' \
+             '.items = ((.items // []) | map(select(.uid != $u))) + [{uid:$u, title:$t, code:$c, author:$a, issue:$n}]' \
              catalog/quests.json > /tmp/q.json && mv /tmp/q.json catalog/quests.json
           git config user.name "quest-bot"
           git config user.email "actions@github.com"
           git add catalog/quests.json
-          git commit -m "収載: ${TITLE} (#${{ github.event.issue.number }})"
+          git commit -m "収載: ${TITLE} [${UID}] (#${{ github.event.issue.number }})"
           git pull --rebase origin main
           git push origin main
           gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label accepted || true
