@@ -74,7 +74,7 @@ jobs:
               rows.append({
                   'title': info.get('title') or q['title'],
                   'uid': (info.get('uid') or '')[:8],
-                  'author': info.get('author', '?'),
+                  'author': (info.get('player') or '')[:8] or '?',
                   'created': info.get('created', 0),
                   'plays': q['plays'], 'clears': q['clears'], 'winRate': q['winRate'],
                   'issue': q['issue'],
@@ -83,7 +83,7 @@ jobs:
           for issue, info in quests.items():
               if not any(r['issue'] == issue for r in rows):
                   rows.append({'title': info.get('title',''), 'uid': (info.get('uid') or '')[:8],
-                               'author': info.get('author','?'), 'created': info.get('created',0),
+                               'author': (info.get('player') or '')[:8] or '?', 'created': info.get('created',0),
                                'plays': 0, 'clears': 0, 'winRate': -1, 'issue': issue})
           rows.sort(key=lambda r: (r['winRate'] < 0, r['winRate'], -r['created']))
           def date(ts):
