@@ -83,15 +83,19 @@ jobs:
           set -e
           OKLINE=$(printf '%s' "$RESULT" | grep '^OK ' | head -1)
           QUID=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=\([0-9a-f]*\) .*/\1/p')
-          TITLE=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* title=//p')
+          PLAYER=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* player=\([0-9a-f]*\) .*/\1/p')
+          CREATED=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* player=[0-9a-f]* created=\([0-9]*\) .*/\1/p')
+          TITLE=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* player=[0-9a-f]* created=[0-9]* title=//p')
           CODE=$(cat /tmp/code.txt)
           mkdir -p catalog
           [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
           # 主キーは恒久ID。同じ課題の投稿は最新の内容で置き換える
           jq --arg u "$QUID" --arg t "$TITLE" --arg c "$CODE" \
              --arg a "${{ github.event.issue.user.login }}" \
+             --arg p "$PLAYER" --argjson cr "${CREATED:-0}" \
              --argjson n ${{ github.event.issue.number }} \
-             '.items = ((.items // []) | map(select(.uid != $u))) + [{uid:$u, title:$t, code:$c, author:$a, issue:$n}]' \
+             '.items = ((.items // []) | map(select(.uid != $u)))
+                + [{uid:$u, title:$t, code:$c, author:$a, player:$p, created:$cr, issue:$n}]' \
              catalog/quests.json > /tmp/q.json && mv /tmp/q.json catalog/quests.json
           git config user.name "quest-bot"
           git config user.email "actions@github.com"

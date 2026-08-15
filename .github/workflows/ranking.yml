@@ -29,7 +29,12 @@ jobs:
           gh api "repos/${{ github.repository }}/issues/2/comments?per_page=100" --paginate \
             -q '.[].body' > /tmp/plays.txt || true
           python3 - <<'PY'
-          import json, re, collections
+          import json, re, collections, os
+          # 課題ごとの作者(恒久ID)。自作自演でランキングを操作されないよう、作者本人の挑戦は数えない
+          author = {}
+          if os.path.exists('catalog/quests.json'):
+              for q in json.load(open('catalog/quests.json')).get('items', []):
+                  author[q.get('issue')] = q.get('player') or ''
           plays = collections.defaultdict(list)
           pat = re.compile(r'play issue=(\d+) win=([01]) time=([\d.]+) title=(.*) player=(\S+)$')
           for line in open('/tmp/plays.txt'):
@@ -37,8 +42,10 @@ jobs:
               if not m: continue
               issue, win, t, title, player = int(m[1]), m[2]=='1', float(m[3]), m[4], m[5]
               plays[issue].append({'win': win, 'time': t, 'title': title, 'player': player})
+          MIN_PLAYS = 5     # 勝率を出すのに必要な挑戦数(少数の偶然で上位に来ないように)
           out = {'quests': []}
-          for issue, ps in sorted(plays.items()):
+          for issue, allps in sorted(plays.items()):
+              ps = [p for p in allps if p['player'] != author.get(issue, '')]
               wins = [p for p in ps if p['win']]
               best = {}
               for p in wins:
@@ -47,9 +54,10 @@ jobs:
               board = sorted(best.values(), key=lambda p: p['time'])[:20]
               out['quests'].append({
                   'issue': issue,
-                  'title': ps[-1]['title'],
+                  'title': allps[-1]['title'],
                   'plays': len(ps),
                   'clears': len(wins),
+                  'winRate': (len(wins) / len(ps)) if len(ps) >= MIN_PLAYS else -1,
                   'board': [{'player': p['player'], 'time': p['time']} for p in board],
               })
           json.dump(out, open('/tmp/ranking.json','w'), ensure_ascii=False, indent=1)
