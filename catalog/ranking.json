@@ -7,6 +7,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 15,
+   "title": "Q-A96108",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
