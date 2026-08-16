@@ -45,6 +45,8 @@ jobs:
           MIN_PLAYS = 5     # 勝率を出すのに必要な挑戦数(少数の偶然で上位に来ないように)
           out = {'quests': []}
           for issue, allps in sorted(plays.items()):
+              # 課題を作り直して登録し直すと issue が変わる。カタログにない古い issue の記録は載せない
+              if author and issue not in author: continue
               ps = [p for p in allps if p['player'] != author.get(issue, '')]
               wins = [p for p in ps if p['win']]
               best = {}
