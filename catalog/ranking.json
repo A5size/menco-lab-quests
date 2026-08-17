@@ -31,6 +31,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 27,
+   "title": "細る岬 素",
+   "plays": 1,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
