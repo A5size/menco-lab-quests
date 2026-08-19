@@ -59,10 +59,15 @@
   {
    "issue": 36,
    "title": "S5 素朴解 円8鉄",
-   "plays": 3,
-   "clears": 0,
+   "plays": 4,
+   "clears": 1,
    "winRate": -1,
-   "board": []
+   "board": [
+    {
+     "player": "05405cc0abde49b08b7d501b2856331d",
+     "time": 19.18
+    }
+   ]
   }
  ]
 }
