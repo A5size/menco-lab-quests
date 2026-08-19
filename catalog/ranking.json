@@ -88,10 +88,15 @@
   {
    "issue": 57,
    "title": "AAEA4F 素朴解 円8ゴム",
-   "plays": 4,
-   "clears": 0,
-   "winRate": -1,
-   "board": []
+   "plays": 5,
+   "clears": 1,
+   "winRate": 0.2,
+   "board": [
+    {
+     "player": "05405cc0abde49b08b7d501b2856331d",
+     "time": 5.85
+    }
+   ]
   }
  ]
 }
