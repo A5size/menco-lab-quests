@@ -4,8 +4,10 @@ on:
     types: [opened, edited]
 
 # カタログ更新の競合を防ぐため直列実行
+# 収載のコミットは競合しても取り直すので、実行そのものは並べてよい。
+# Issue ごとに分ければ、同じIssueの連続編集だけが直列になる
 concurrency:
-  group: quest-validation
+  group: quest-validation-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 permissions:
@@ -87,22 +89,35 @@ jobs:
           CREATED=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* player=[0-9a-f]* created=\([0-9]*\) .*/\1/p')
           TITLE=$(printf '%s' "$OKLINE" | sed -n 's/^OK uid=[0-9a-f]* player=[0-9a-f]* created=[0-9]* title=//p')
           CODE=$(cat /tmp/code.txt)
-          mkdir -p catalog
-          [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
-          # 主キーは恒久ID。同じ課題の投稿は最新の内容で置き換える
-          jq --arg u "$QUID" --arg t "$TITLE" --arg c "$CODE" \
-             --arg a "${{ github.event.issue.user.login }}" \
-             --arg p "$PLAYER" --argjson cr "${CREATED:-0}" \
-             --argjson n ${{ github.event.issue.number }} \
-             '.items = ((.items // []) | map(select(.uid != $u)))
-                + [{uid:$u, title:$t, code:$c, author:$a, player:$p, created:$cr, issue:$n}]' \
-             catalog/quests.json > /tmp/q.json && mv /tmp/q.json catalog/quests.json
           git config user.name "quest-bot"
           git config user.email "actions@github.com"
-          git add catalog/quests.json
-          git commit -m "収載: ${TITLE} [${QUID}] (#${{ github.event.issue.number }})"
-          git pull --rebase origin main
-          git push origin main
+          # 同じ瞬間に複数の検証が走ると quests.json の同じ箇所を触って
+          # rebase が自動解決できず落ちる(2026-08-19に15件が待ちのまま残った)。
+          # 「最新を取り直してから追記して push」を、押せるまで繰り返す。
+          # これならリベースの衝突自体が起きない
+          for attempt in 1 2 3 4 5 6 7 8; do
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p catalog
+            [ -f catalog/quests.json ] || echo '{"items":[]}' > catalog/quests.json
+            # 主キーは恒久ID。同じ課題の投稿は最新の内容で置き換える
+            jq --arg u "$QUID" --arg t "$TITLE" --arg c "$CODE" \
+               --arg a "${{ github.event.issue.user.login }}" \
+               --arg p "$PLAYER" --argjson cr "${CREATED:-0}" \
+               --argjson n ${{ github.event.issue.number }} \
+               '.items = ((.items // []) | map(select(.uid != $u)))
+                  + [{uid:$u, title:$t, code:$c, author:$a, player:$p, created:$cr, issue:$n}]' \
+               catalog/quests.json > /tmp/q.json && mv /tmp/q.json catalog/quests.json
+            git add catalog/quests.json
+            git commit -m "収載: ${TITLE} [${QUID}] (#${{ github.event.issue.number }})" || true
+            if git push origin HEAD:main; then
+              echo "収載しました(試行 $attempt)"
+              break
+            fi
+            echo "他の実行と競合したので取り直します(試行 $attempt)"
+            sleep $((RANDOM % 10 + 5))
+            if [ "$attempt" = "8" ]; then echo "::error::カタログへ push できませんでした"; exit 1; fi
+          done
           gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label accepted || true
           gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} \
             --body "検証合格。「${TITLE}」をカタログに収載しました。ありがとうございます!"
