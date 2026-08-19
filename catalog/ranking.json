@@ -129,6 +129,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 66,
+   "title": "3B173E 円6鉛",
+   "plays": 1,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
