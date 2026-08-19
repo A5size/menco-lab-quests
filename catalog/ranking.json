@@ -76,6 +76,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 55,
+   "title": "AAEA4F 素朴解 枠16-",
+   "plays": 1,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
