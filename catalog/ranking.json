@@ -105,6 +105,14 @@
    "clears": 0,
    "winRate": 0.0,
    "board": []
+  },
+  {
+   "issue": 60,
+   "title": "Q-3B173E",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
