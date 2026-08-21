@@ -153,6 +153,19 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 68,
+   "title": "3B173E 鉛4x4",
+   "plays": 1,
+   "clears": 1,
+   "winRate": -1,
+   "board": [
+    {
+     "player": "183b5fee695b46ff9b5cc8fa00ada726",
+     "time": 7.15
+    }
+   ]
   }
  ]
 }
