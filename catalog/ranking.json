@@ -166,6 +166,19 @@
      "time": 7.15
     }
    ]
+  },
+  {
+   "issue": 69,
+   "title": "3B173E 円16和紙",
+   "plays": 1,
+   "clears": 1,
+   "winRate": -1,
+   "board": [
+    {
+     "player": "183b5fee695b46ff9b5cc8fa00ada726",
+     "time": 10.76
+    }
+   ]
   }
  ]
 }
