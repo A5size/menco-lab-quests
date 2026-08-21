@@ -1,1 +1,97 @@
-{"quests": [{"issue": 12, "title": "Q-477545", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 15, "title": "Q-A96108", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 16, "title": "Q-259792", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 24, "title": "Q-3E6A6B", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 30, "title": "吊り串の", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 33, "title": "Q-F1B0C9", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 54, "title": "Q-AAEA4F", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 60, "title": "Q-3B173E", "plays": 1, "clears": 1, "winRate": -1, "board": [{"player": "183b5fee695b46ff9b5cc8fa00ada726", "time": 6.3}]}, {"issue": 72, "title": "EEF0FF 頑健解A 真上z", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 73, "title": "EEF0FF 頑健解B 角80", "plays": 0, "clears": 0, "winRate": -1, "board": []}, {"issue": 74, "title": "EEF0FF 頑健解C 角90", "plays": 0, "clears": 0, "winRate": -1, "board": []}]}
+{
+ "quests": [
+  {
+   "issue": 12,
+   "title": "Q-477545",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 15,
+   "title": "Q-A96108",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 16,
+   "title": "Q-259792",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 24,
+   "title": "Q-3E6A6B",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 30,
+   "title": "吊り串の",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 33,
+   "title": "Q-F1B0C9",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 54,
+   "title": "Q-AAEA4F",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 60,
+   "title": "Q-3B173E",
+   "plays": 1,
+   "clears": 1,
+   "winRate": -1,
+   "board": [
+    {
+     "player": "183b5fee695b46ff9b5cc8fa00ada726",
+     "time": 6.3
+    }
+   ]
+  },
+  {
+   "issue": 72,
+   "title": "EEF0FF 頑健解A 真上z",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 73,
+   "title": "EEF0FF 頑健解B 角80",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  },
+  {
+   "issue": 74,
+   "title": "EEF0FF 頑健解C 角90",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
+  }
+ ]
+}
