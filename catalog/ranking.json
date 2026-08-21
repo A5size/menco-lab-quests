@@ -179,6 +179,19 @@
      "time": 10.76
     }
    ]
+  },
+  {
+   "issue": 70,
+   "title": "3B173E 鉛5x8",
+   "plays": 1,
+   "clears": 1,
+   "winRate": -1,
+   "board": [
+    {
+     "player": "183b5fee695b46ff9b5cc8fa00ada726",
+     "time": 8.73
+    }
+   ]
   }
  ]
 }
