@@ -150,6 +150,19 @@
    "board": []
   },
   {
+   "issue": 86,
+   "title": "二段構え B06",
+   "plays": 1,
+   "clears": 1,
+   "winRate": -1,
+   "board": [
+    {
+     "player": "56ef10f0760245dcb41d069118c68fa3",
+     "time": 5.55
+    }
+   ]
+  },
+  {
    "issue": 87,
    "title": "素朴解 ベタ10ゴム",
    "plays": 1,
