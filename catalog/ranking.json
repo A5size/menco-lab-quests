@@ -148,6 +148,19 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 87,
+   "title": "素朴解 ベタ10ゴム",
+   "plays": 1,
+   "clears": 1,
+   "winRate": -1,
+   "board": [
+    {
+     "player": "56ef10f0760245dcb41d069118c68fa3",
+     "time": 6.05
+    }
+   ]
   }
  ]
 }
