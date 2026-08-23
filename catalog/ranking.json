@@ -116,6 +116,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 81,
+   "title": "素朴解 鉛5x8",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
