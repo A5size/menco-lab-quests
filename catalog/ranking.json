@@ -92,6 +92,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 77,
+   "title": "Q-5086C0",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
