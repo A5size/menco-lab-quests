@@ -161,6 +161,14 @@
      "time": 6.05
     }
    ]
+  },
+  {
+   "issue": 88,
+   "title": "素朴解 鉛4x4",
+   "plays": 1,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
