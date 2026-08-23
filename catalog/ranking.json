@@ -100,6 +100,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 78,
+   "title": "素朴解 円16和紙",
+   "plays": 0,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
