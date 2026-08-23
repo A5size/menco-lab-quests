@@ -169,6 +169,14 @@
    "clears": 0,
    "winRate": -1,
    "board": []
+  },
+  {
+   "issue": 89,
+   "title": "素朴解 円6鉛",
+   "plays": 1,
+   "clears": 0,
+   "winRate": -1,
+   "board": []
   }
  ]
 }
