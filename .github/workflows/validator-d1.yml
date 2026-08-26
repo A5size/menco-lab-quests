@@ -1,0 +1,190 @@
+# 新基盤の検証。Worker から仕事を取り、固定の Unity 検証機で確かめ、結果を返す。
+# 攻撃者入力(共有コード)を扱う VALIDATE には秘密も書き込み権限も与えない。
+#
+# 必要な設定:
+#   secret  VALIDATOR_API_SECRET   Worker と共有する HMAC の秘密
+#   variable WORKER_URL            例 https://menco-lab-api.<subdomain>.workers.dev
+#   variable VALIDATOR_SHA256      Releases の検証機 tar.gz の SHA-256
+
+name: validate-d1
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  claim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_stage: ${{ steps.claim.outputs.has_stage }}
+      has_solution: ${{ steps.claim.outputs.has_solution }}
+    steps:
+      - name: 仕事を取る
+        id: claim
+        env:
+          SECRET: ${{ secrets.VALIDATOR_API_SECRET }}
+          WORKER: ${{ vars.WORKER_URL }}
+        run: |
+          set -euo pipefail
+          sign_post() {  # path body -> レスポンスを stdout へ
+            local path="$1" body="$2"
+            local ts bodyhash sig
+            ts=$(date +%s)
+            bodyhash=$(printf '%s' "$body" | sha256sum | cut -d' ' -f1)
+            sig=$(printf 'POST\n%s\n%s\n%s' "$path" "$ts" "$bodyhash" \
+                  | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/.*= //')
+            curl -sS --fail-with-body --connect-timeout 15 --max-time 60 \
+              -X POST "$WORKER$path" \
+              -H "content-type: application/json" \
+              -H "x-menco-timestamp: $ts" \
+              -H "x-menco-signature: $sig" \
+              --data-binary "$body"
+          }
+          mkdir -p work
+          sign_post /internal/validator/claim '{"kind":"stage","limit":5}'    > work/stage_jobs.json
+          sign_post /internal/validator/claim '{"kind":"solution","limit":5}' > work/solution_jobs.json
+          n_stage=$(python3 -c 'import json;print(len(json.load(open("work/stage_jobs.json"))["jobs"]))')
+          n_solution=$(python3 -c 'import json;print(len(json.load(open("work/solution_jobs.json"))["jobs"]))')
+          echo "stage=$n_stage solution=$n_solution"
+          echo "has_stage=$([ "$n_stage" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "has_solution=$([ "$n_solution" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jobs
+          path: work/
+          retention-days: 1
+
+  validate:
+    needs: claim
+    if: needs.claim.outputs.has_stage == 'true' || needs.claim.outputs.has_solution == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # 攻撃者入力を扱う。秘密なし・checkoutなし・書き込み権限なし
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: jobs
+          path: work
+      - name: 検証機を取得(公開Releases・チェックサム固定)
+        env:
+          EXPECTED: ${{ vars.VALIDATOR_SHA256 }}
+        run: |
+          set -euo pipefail
+          curl -sSL --fail-with-body -o validator.tar.gz \
+            "https://github.com/${{ github.repository }}/releases/download/validator/menco-validator-linux.tar.gz"
+          if [ -z "$EXPECTED" ]; then
+            echo "VALIDATOR_SHA256 が未設定。固定できない検証機は実行しない"; exit 1
+          fi
+          actual=$(sha256sum validator.tar.gz | cut -d' ' -f1)
+          if [ "$actual" != "$EXPECTED" ]; then
+            echo "検証機のチェックサムが合わない"; exit 1
+          fi
+          mkdir -p validator && tar xzf validator.tar.gz -C validator
+          chmod +x validator/MencoLab.x86_64
+      - name: 実行時ライブラリ
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libasound2t64 libglu1-mesa libxcursor1 libxrandr2 libxinerama1 libxi6 || \
+            sudo apt-get install -y -qq xvfb libasound2 libglu1-mesa libxcursor1 libxrandr2 libxinerama1 libxi6 || true
+      - name: 検証を実行
+        run: |
+          set -euo pipefail
+          run_kind() {  # jobs結果ファイル コマンド
+            local jobs="$1" cmd="$2" out="$3"
+            local n
+            n=$(python3 -c "import json;print(len(json.load(open('$jobs'))['jobs']))")
+            if [ "$n" -eq 0 ]; then echo '{"results":[]}' > "$out"; return; fi
+            timeout 20m xvfb-run -a validator/MencoLab.x86_64 -batchmode -nographics \
+              "$cmd" -in "$jobs" -out "$out" -logFile player.log || {
+                echo "検証機が異常終了。結果は返さず、leaseの失効に任せる"
+                echo '{"results":[]}' > "$out"
+              }
+          }
+          run_kind work/stage_jobs.json    -menco-validate-stage    work/stage_results.json
+          run_kind work/solution_jobs.json -menco-validate-solution work/solution_results.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: work/*_results.json
+          retention-days: 1
+
+  result:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: jobs
+          path: work
+      - uses: actions/download-artifact@v4
+        with:
+          name: results
+          path: work
+      - name: 結果を返す
+        env:
+          SECRET: ${{ secrets.VALIDATOR_API_SECRET }}
+          WORKER: ${{ vars.WORKER_URL }}
+        run: |
+          set -euo pipefail
+          # VALIDATE は攻撃者入力(共有コード)を扱った実行系。その出力は
+          # claim 時の台帳と突き合わせ、形の合うものだけを署名して返す
+          cat > filter.py <<'PY'
+          import json, sys
+          jobs_file, results_file = sys.argv[1], sys.argv[2]
+          manifest = {}
+          for j in json.load(open(jobs_file))["jobs"]:
+              manifest[j["jobId"]] = j["claimId"]
+          picked = {}
+          for r in json.load(open(results_file))["results"]:
+              if not isinstance(r, dict):
+                  continue
+              job_id, claim_id = r.get("jobId"), r.get("claimId")
+              valid, err = r.get("valid"), r.get("errorCode")
+              pv, ps = r.get("physicsVersion"), r.get("physicsSignature")
+              ok = (
+                  type(job_id) is int and manifest.get(job_id) == claim_id
+                  and type(valid) is bool
+                  and isinstance(pv, str) and 0 < len(pv) <= 64
+                  and isinstance(ps, str) and len(ps) <= 1024
+                  and ps.startswith(u"モデル=" + pv)
+                  and (err is None or (isinstance(err, str) and len(err) <= 64))
+              )
+              if not ok:
+                  print("台帳と合わない結果を捨てた: %r" % (job_id,), file=sys.stderr)
+                  continue
+              body = {"jobId": job_id, "claimId": claim_id, "valid": valid,
+                      "physicsVersion": pv, "physicsSignature": ps, "errorCode": err}
+              # 同じjobの重複: 同一内容なら1件化、食い違うならそのjobごと捨てる
+              if job_id in picked and picked[job_id] != body:
+                  picked[job_id] = None
+              elif job_id not in picked:
+                  picked[job_id] = body
+          for job_id, body in sorted(picked.items()):
+              if body is None:
+                  print("食い違う重複結果を捨てた: %r" % (job_id,), file=sys.stderr)
+                  continue
+              print(json.dumps(body, ensure_ascii=False))
+          PY
+          send_results() {
+            local jobs="$1" file="$2"
+            python3 filter.py "$jobs" "$file" | while IFS= read -r body; do
+              ts=$(date +%s)
+              bodyhash=$(printf '%s' "$body" | sha256sum | cut -d' ' -f1)
+              sig=$(printf 'POST\n/internal/validator/result\n%s\n%s' "$ts" "$bodyhash" \
+                    | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/.*= //')
+              curl -sS --fail-with-body --connect-timeout 15 --max-time 60 \
+                -X POST "$WORKER/internal/validator/result" \
+                -H "content-type: application/json" \
+                -H "x-menco-timestamp: $ts" \
+                -H "x-menco-signature: $sig" \
+                --data-binary "$body" || echo "送信失敗(継続): $body" >&2
+              echo
+            done
+          }
+          send_results work/stage_jobs.json    work/stage_results.json
+          send_results work/solution_jobs.json work/solution_results.json
